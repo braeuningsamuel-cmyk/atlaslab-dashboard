@@ -1,11 +1,14 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::Write;
 use std::net::ToSocketAddrs;
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
 use tauri::State;
+use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+use tokio::sync::Mutex as AsyncMutex;
 
 // ─── Data Structures ────────────────────────────────────────────────────────
 
@@ -107,6 +110,84 @@ pub struct UserEntry {
     pub info: String,
 }
 
+// ─── Homelab Integration Types ────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WireGuardPeer {
+    pub public_key: String,
+    pub endpoint: Option<String>,
+    pub allowed_ips: Vec<String>,
+    pub latest_handshake: Option<String>,
+    pub transfer_rx: u64,
+    pub transfer_tx: u64,
+    pub persistent_keepalive: Option<u16>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JellyfinSession {
+    pub id: String,
+    pub user: String,
+    pub client: String,
+    pub device: String,
+    pub state: String,
+    pub progress: f32,
+    pub item: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ArrHealth {
+    pub service: String,
+    pub version: String,
+    pub status: String,
+    pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct OllamaModel {
+    pub name: String,
+    pub size: u64,
+    pub modified: String,
+    pub digest: String,
+    pub details: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SyncthingFolder {
+    pub id: String,
+    pub label: String,
+    pub path: String,
+    pub status: String,
+    pub need_bytes: u64,
+    pub need_items: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UptimeKumaMonitor {
+    pub id: u32,
+    pub name: String,
+    pub type_: String,
+    pub status: String,
+    pub uptime: f32,
+    pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PTYSession {
+    pub id: String,
+    pub rows: u16,
+    pub cols: u16,
+}
+
+// ─── PTY State ────────────────────────────────────────────────────────────────
+
+type PtyMaster = Arc<AsyncMutex<Box<dyn portable_pty::MasterPty + Send>>>;
+type PtyWriter = Arc<AsyncMutex<Box<dyn std::io::Write + Send>>>;
+
+struct PtyState {
+    masters: Mutex<HashMap<String, PtyMaster>>,
+    writers: Mutex<HashMap<String, PtyWriter>>,
+}
+
 // ─── App State ──────────────────────────────────────────────────────────────
 
 pub struct AppConfig {
@@ -149,6 +230,14 @@ fn shell_escape(s: &str) -> String {
     } else {
         format!("'{}'", s.replace("'", "'\\''"))
     }
+}
+
+fn uuid_simple() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let t = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    format!("{:x}-{:04x}", t.as_secs(), t.subsec_millis())
 }
 
 fn is_remote(config: &AppConfig) -> bool {
@@ -1075,6 +1164,219 @@ fn user_list(config: State<'_, AppConfig>) -> Result<Vec<UserEntry>, String> {
     Ok(users)
 }
 
+// ─── WireGuard Commands ─────────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_wireguard_peers(config: State<'_, AppConfig>) -> Result<String, String> {
+    let script = "sudo wg show all";
+    if is_remote(&config) {
+        run_ssh(&config, script)
+    } else {
+        local_shell_cmd(script)
+    }
+}
+
+// ─── Jellyfin Commands ─────────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_jellyfin_control(action: String, config: State<'_, AppConfig>) -> Result<String, String> {
+    let valid = ["sessions", "libraries", "system-info", "restart"];
+    if !valid.contains(&action.as_str()) {
+        return Err("Invalid Jellyfin action".to_string());
+    }
+    let script = match action.as_str() {
+        "sessions" => "curl -s http://localhost:8096/Sessions?api_key=$(cat /var/lib/jellyfin/config/system.xml 2>/dev/null | grep -oP 'APIKey>[^<]+' | head -1 | cut -d'>' -f2) || echo 'Jellyfin nicht erreichbar'",
+        "libraries" => "curl -s http://localhost:8096/Library/VirtualFolders?api_key=$(cat /var/lib/jellyfin/config/system.xml 2>/dev/null | grep -oP 'APIKey>[^<]+' | head -1 | cut -d'>' -f2) || echo 'Jellyfin nicht erreichbar'",
+        "system-info" => "curl -s http://localhost:8096/System/Info?api_key=$(cat /var/lib/jellyfin/config/system.xml 2>/dev/null | grep -oP 'APIKey>[^<]+' | head -1 | cut -d'>' -f2) || echo 'Jellyfin nicht erreichbar'",
+        "restart" => "sudo systemctl restart jellyfin",
+        _ => return Err("Invalid action".to_string()),
+    };
+    if is_remote(&config) {
+        run_ssh(&config, script)
+    } else {
+        local_shell_cmd(script)
+    }
+}
+
+// ─── Arr Stack Commands ────────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_arr_stack(action: String, config: State<'_, AppConfig>) -> Result<String, String> {
+    let valid = ["status", "plex", "sonarr", "radarr", "lidarr", "readarr", "bazarr"];
+    if !valid.contains(&action.as_str()) {
+        return Err("Invalid Arr action".to_string());
+    }
+    let script = match action.as_str() {
+        "status" => "systemctl is-active plexmediaserver sonarr radarr lidarr readarr bazarr 2>/dev/null | paste - - - - - - || echo 'Arr-Services prüfen'",
+        "plex" => "curl -s http://localhost:32400/identity 2>/dev/null || echo 'Plex nicht erreichbar'",
+        "sonarr" => "curl -s http://localhost:8989/api/system/status 2>/dev/null || echo 'Sonarr nicht erreichbar'",
+        "radarr" => "curl -s http://localhost:7878/api/system/status 2>/dev/null || echo 'Radarr nicht erreichbar'",
+        "lidarr" => "curl -s http://localhost:8686/api/v1/system/status 2>/dev/null || echo 'Lidarr nicht erreichbar'",
+        "readarr" => "curl -s http://localhost:8787/api/v1/system/status 2>/dev/null || echo 'Readarr nicht erreichbar'",
+        "bazarr" => "curl -s http://localhost:6767/api/system/status 2>/dev/null || echo 'Bazarr nicht erreichbar'",
+        _ => return Err("Invalid action".to_string()),
+    };
+    if is_remote(&config) {
+        run_ssh(&config, script)
+    } else {
+        local_shell_cmd(script)
+    }
+}
+
+// ─── Ollama Commands ──────────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_ollama_models(action: String, config: State<'_, AppConfig>) -> Result<String, String> {
+    let valid = ["list", "ps", "pull"];
+    if !valid.contains(&action.as_str()) {
+        return Err("Invalid Ollama action".to_string());
+    }
+    let script = match action.as_str() {
+        "list" => "curl -s http://localhost:11434/api/tags 2>/dev/null || echo 'Ollama nicht erreichbar'",
+        "ps" => "curl -s http://localhost:11434/api/ps 2>/dev/null || echo 'Ollama nicht erreichbar'",
+        "pull" => "echo 'Pull über UI oder ollama pull <model> starten'",
+        _ => return Err("Invalid action".to_string()),
+    };
+    if is_remote(&config) {
+        run_ssh(&config, script)
+    } else {
+        local_shell_cmd(script)
+    }
+}
+
+// ─── Syncthing Commands ────────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_syncthing_folders(config: State<'_, AppConfig>) -> Result<String, String> {
+    let script = "curl -s http://localhost:8384/rest/system/status -H 'X-API-Key: $(cat /var/syncthing/config/config.xml 2>/dev/null | grep -oP 'apikey>[^<]+' | head -1 | cut -d'>' -f2)' 2>/dev/null || echo 'Syncthing nicht erreichbar'";
+    if is_remote(&config) {
+        run_ssh(&config, script)
+    } else {
+        local_shell_cmd(script)
+    }
+}
+
+// ─── Uptime Kuma Commands ──────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_uptime_kuma(config: State<'_, AppConfig>) -> Result<String, String> {
+    let script = "curl -s http://localhost:3001/api/heartbeat 2>/dev/null || echo 'Uptime Kuma nicht erreichbar'";
+    if is_remote(&config) {
+        run_ssh(&config, script)
+    } else {
+        local_shell_cmd(script)
+    }
+}
+
+// ─── Nextcloud OCC Commands ────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_nextcloud_occ(args: String, config: State<'_, AppConfig>) -> Result<String, String> {
+    let escaped = shell_escape(&args);
+    let script = format!(
+        "docker exec -it nextcloud-aio-nextcloud php occ {} 2>/dev/null || sudo -u www-data php /var/www/nextcloud/occ {}",
+        escaped, escaped
+    );
+    if is_remote(&config) {
+        run_ssh(&config, &script)
+    } else {
+        local_shell_cmd(&script)
+    }
+}
+
+// ─── PTY Commands ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn allow_pty_spawn(rows: u16, cols: u16, state: State<'_, PtyState>) -> Result<PTYSession, String> {
+    let pty_system = native_pty_system();
+    let size = PtySize {
+        rows,
+        cols,
+        pixel_width: 0,
+        pixel_height: 0,
+    };
+    let pair = pty_system
+        .openpty(size)
+        .map_err(|e| format!("PTY open error: {}", e))?;
+
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
+    let cmd = CommandBuilder::new(&shell);
+    let _child = pair
+        .slave
+        .spawn_command(cmd)
+        .map_err(|e| format!("PTY spawn error: {}", e))?;
+
+    let session_id = uuid_simple();
+
+    let writer_raw = pair.master.take_writer()
+        .map_err(|e| format!("PTY take_writer error: {}", e))?;
+
+    let master: PtyMaster = Arc::new(AsyncMutex::new(pair.master));
+    let writer: PtyWriter = Arc::new(AsyncMutex::new(writer_raw));
+
+    let mut masters = state.masters.lock().map_err(|e| e.to_string())?;
+    let mut writers = state.writers.lock().map_err(|e| e.to_string())?;
+    masters.insert(session_id.clone(), master);
+    writers.insert(session_id.clone(), writer);
+
+    Ok(PTYSession {
+        id: session_id,
+        rows,
+        cols,
+    })
+}
+
+#[tauri::command]
+fn allow_pty_write(
+    session_id: String,
+    data: String,
+    state: State<'_, PtyState>,
+) -> Result<(), String> {
+    let writers = state.writers.lock().map_err(|e| e.to_string())?;
+    let writer = writers
+        .get(&session_id)
+        .ok_or_else(|| "Session not found".to_string())?;
+    let mut w = writer.blocking_lock();
+    use std::io::Write;
+    w.write_all(data.as_bytes())
+        .map_err(|e| format!("PTY write error: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn allow_pty_resize(
+    session_id: String,
+    rows: u16,
+    cols: u16,
+    state: State<'_, PtyState>,
+) -> Result<(), String> {
+    let masters = state.masters.lock().map_err(|e| e.to_string())?;
+    let master = masters
+        .get(&session_id)
+        .ok_or_else(|| "Session not found".to_string())?;
+    let m = master.blocking_lock();
+    m.resize(PtySize {
+        rows,
+        cols,
+        pixel_width: 0,
+        pixel_height: 0,
+    })
+    .map_err(|e| format!("PTY resize error: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn allow_pty_close(
+    session_id: String,
+    state: State<'_, PtyState>,
+) -> Result<(), String> {
+    let mut masters = state.masters.lock().map_err(|e| e.to_string())?;
+    let mut writers = state.writers.lock().map_err(|e| e.to_string())?;
+    masters.remove(&session_id);
+    writers.remove(&session_id);
+    Ok(())
+}
+
 // ─── System Power Commands ──────────────────────────────────────────────────
 
 #[tauri::command]
@@ -1109,6 +1411,10 @@ pub fn run() {
             sys: Mutex::new(System::new_all()),
             networks: Mutex::new(Networks::new_with_refreshed_list()),
             disks: Mutex::new(Disks::new_with_refreshed_list()),
+        })
+        .manage(PtyState {
+            masters: Mutex::new(HashMap::new()),
+            writers: Mutex::new(HashMap::new()),
         })
         .invoke_handler(tauri::generate_handler![
             // Connection
@@ -1156,6 +1462,25 @@ pub fn run() {
             package_action,
             // Users
             user_list,
+            // WireGuard
+            allow_wireguard_peers,
+            // Jellyfin
+            allow_jellyfin_control,
+            // Arr Stack
+            allow_arr_stack,
+            // Ollama
+            allow_ollama_models,
+            // Syncthing
+            allow_syncthing_folders,
+            // Uptime Kuma
+            allow_uptime_kuma,
+            // Nextcloud
+            allow_nextcloud_occ,
+            // PTY
+            allow_pty_spawn,
+            allow_pty_write,
+            allow_pty_resize,
+            allow_pty_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

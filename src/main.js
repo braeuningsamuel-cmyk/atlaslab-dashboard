@@ -71,7 +71,7 @@ function closeDialog() { document.getElementById('dialog-overlay').classList.rem
 const pageTitles = {
   dashboard: 'Dashboard', docker: 'Docker', services: 'Services', files: 'Dateien',
   network: 'Netzwerk', storage: 'Speicher', processes: 'Prozesse', packages: 'Pakete',
-  users: 'Benutzer', crontab: 'Crontab', terminal: 'Terminal', logs: 'Logs', ports: 'Ports', power: 'Power'
+  users: 'Benutzer', crontab: 'Crontab', homelab: 'Homelab', terminal: 'Terminal', logs: 'Logs', ports: 'Ports', power: 'Power'
 };
 
 function showPage(name) {
@@ -88,7 +88,8 @@ function showPage(name) {
   const loaders = {
     docker: loadDocker, services: loadServices, files: loadFiles, network: loadNetwork,
     storage: loadStorage, processes: loadProcesses, packages: () => { }, users: loadUsers,
-    crontab: loadCrontab, ports: checkPorts, terminal: () => document.getElementById('term-input').focus()
+    crontab: loadCrontab, ports: checkPorts, homelab: () => { },
+    terminal: () => { initPty(); document.getElementById('term-input').focus(); }
   };
   if (loaders[name]) loaders[name]();
 }
@@ -528,21 +529,112 @@ window.saveCrontab = async function saveCrontab() {
   });
 }
 
-// ── Terminal ──
+// ── Terminal (PTY) ──
 
-async function runTermCmd(cmd) {
-  const out = document.getElementById('term-output');
-  out.textContent += '$ ' + cmd + '\n';
-  try { const r = await invoke('run_command', { command: cmd }); out.textContent += r + '\n\n'; }
-  catch (e) { out.textContent += 'Fehler: ' + e + '\n\n'; }
-  out.scrollTop = 99999;
+let ptySessionId = null;
+
+async function initPty() {
+  if (ptySessionId) return;
+  try {
+    const term = document.getElementById('term-output');
+    const cols = Math.floor((term.offsetWidth - 20) / 8.4) || 120;
+    const rows = 24;
+    const session = await invoke('allow_pty_spawn', { rows, cols });
+    ptySessionId = session.id;
+
+    document.getElementById('term-output').textContent = 'PTY Session gestartet (' + session.id + ')\n\n';
+    readPtyOutput();
+  } catch (e) {
+    document.getElementById('term-output').textContent = 'PTY Fehler: ' + e + '\n';
+  }
 }
 
-document.getElementById('term-input').addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') { const cmd = this.value.trim(); if (cmd) { termHistory.push(cmd); termHistIdx = termHistory.length; runTermCmd(cmd); } this.value = ''; }
+async function readPtyOutput() {
+  // PTY output is streamed via the shell process - fall back to run_command for output
+  // In a future version, we'll use PTY reader thread with events
+}
+
+document.getElementById('term-input').addEventListener('keydown', async function (e) {
+  if (e.key === 'Enter') {
+    const cmd = this.value.trim();
+    if (cmd) {
+      const out = document.getElementById('term-output');
+      out.textContent += '$ ' + cmd + '\n';
+      if (ptySessionId) {
+        try {
+          await invoke('allow_pty_write', { sessionId: ptySessionId, data: cmd + '\n' });
+        } catch (e) {
+          out.textContent += 'PTY write Fehler: ' + e + '\nFalling back...\n';
+          try { const r = await invoke('run_command', { command: cmd }); out.textContent += r + '\n'; }
+          catch (e2) { out.textContent += 'Fehler: ' + e2 + '\n'; }
+        }
+      } else {
+        try { const r = await invoke('run_command', { command: cmd }); out.textContent += r + '\n'; }
+        catch (e) { out.textContent += 'Fehler: ' + e + '\n'; }
+      }
+      termHistory.push(cmd);
+      termHistIdx = termHistory.length;
+      out.textContent += '\n';
+      out.scrollTop = 99999;
+    }
+    this.value = '';
+  }
   if (e.key === 'ArrowUp') { e.preventDefault(); if (termHistIdx > 0) { termHistIdx--; this.value = termHistory[termHistIdx]; } }
   if (e.key === 'ArrowDown') { e.preventDefault(); if (termHistIdx < termHistory.length - 1) { termHistIdx++; this.value = termHistory[termHistIdx]; } else { termHistIdx = termHistory.length; this.value = ''; } }
 });
+
+async function cleanupPty() {
+  if (ptySessionId) {
+    try { await invoke('allow_pty_close', { sessionId: ptySessionId }); } catch (e) {}
+    ptySessionId = null;
+  }
+}
+
+// ── Homelab Integrations ──
+
+function setOutput(id, text) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = text || '(leer)'; el.scrollTop = 99999; }
+}
+
+window.loadWireGuard = async function () {
+  try { const r = await invoke('allow_wireguard_peers'); setOutput('wg-output', r); }
+  catch (e) { setOutput('wg-output', 'Fehler: ' + e); }
+}
+
+window.loadJellyfin = async function () {
+  const action = document.getElementById('jellyfin-action').value;
+  try { const r = await invoke('allow_jellyfin_control', { action }); setOutput('jellyfin-output', r); }
+  catch (e) { setOutput('jellyfin-output', 'Fehler: ' + e); }
+}
+
+window.loadArrStack = async function () {
+  try { const r = await invoke('allow_arr_stack', { action: 'status' }); setOutput('arr-output', r); }
+  catch (e) { setOutput('arr-output', 'Fehler: ' + e); }
+}
+
+window.loadOllama = async function () {
+  const action = document.getElementById('ollama-action').value;
+  try { const r = await invoke('allow_ollama_models', { action }); setOutput('ollama-output', r); }
+  catch (e) { setOutput('ollama-output', 'Fehler: ' + e); }
+}
+
+window.loadSyncthing = async function () {
+  try { const r = await invoke('allow_syncthing_folders'); setOutput('syncthing-output', r); }
+  catch (e) { setOutput('syncthing-output', 'Fehler: ' + e); }
+}
+
+window.loadUptimeKuma = async function () {
+  try { const r = await invoke('allow_uptime_kuma'); setOutput('uptime-output', r); }
+  catch (e) { setOutput('uptime-output', 'Fehler: ' + e); }
+}
+
+window.runNextcloudOcc = async function () {
+  const args = document.getElementById('occ-cmd').value.trim();
+  if (!args) return toast('OCC-Befehl eingeben', 'err');
+  try { const r = await invoke('allow_nextcloud_occ', { args }); setOutput('occ-output', r); }
+  catch (e) { setOutput('occ-output', 'Fehler: ' + e); }
+}
 
 // ── Logs ──
 

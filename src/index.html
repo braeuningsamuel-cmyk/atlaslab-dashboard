@@ -1293,6 +1293,11 @@
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>Crontab</button>
+      <div class="sb-sec">Homelab</div>
+      <button class="sb-i" data-page="homelab"><svg viewBox="0 0 24 24">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 21h8M12 17v4" />
+        </svg>Dienste</button>
       <div class="sb-sec">Tools</div>
       <button class="sb-i" data-page="terminal"><svg viewBox="0 0 24 24">
           <polyline points="4 17 10 11 4 5" />
@@ -1372,6 +1377,10 @@
         <circle cx="12" cy="12" r="10" />
         <polyline points="12 6 12 12 16 14" />
       </svg>Crontab</button>
+    <button data-page="homelab"><svg viewBox="0 0 24 24">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+      </svg>Dienste</button>
     <button data-page="logs"><svg viewBox="0 0 24 24">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
       </svg>Logs</button>
@@ -1784,6 +1793,84 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ── HOMELAB ── -->
+    <div class="page" id="page-homelab">
+      <div class="section-title">Homelab-Dienste</div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">WireGuard VPN</div>
+          <button class="btn btn-sm" onclick="loadWireGuard()">Aktualisieren</button>
+        </div>
+        <pre class="code-block" id="wg-output">Klicke "Aktualisieren" um WireGuard-Peers anzuzeigen</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Jellyfin Media Server</div>
+          <div class="card-actions">
+            <select id="jellyfin-action" class="input" style="width:auto">
+              <option value="system-info">System-Info</option>
+              <option value="sessions">Sitzungen</option>
+              <option value="libraries">Bibliotheken</option>
+              <option value="restart">Neustart</option>
+            </select>
+            <button class="btn btn-sm" onclick="loadJellyfin()">Ausführen</button>
+          </div>
+        </div>
+        <pre class="code-block" id="jellyfin-output">Wähle eine Aktion und klicke "Ausführen"</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Arr-Stack (Sonarr/Radarr/Lidarr)</div>
+          <button class="btn btn-sm" onclick="loadArrStack()">Status prüfen</button>
+        </div>
+        <pre class="code-block" id="arr-output">Klicke "Status prüfen" um den Arr-Stack zu überprüfen</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Ollama LLM</div>
+          <div class="card-actions">
+            <select id="ollama-action" class="input" style="width:auto">
+              <option value="list">Modelle anzeigen</option>
+              <option value="ps">Laufende Modelle</option>
+            </select>
+            <button class="btn btn-sm" onclick="loadOllama()">Ausführen</button>
+          </div>
+        </div>
+        <pre class="code-block" id="ollama-output">Wähle eine Aktion und klicke "Ausführen"</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Syncthing</div>
+          <button class="btn btn-sm" onclick="loadSyncthing()">Status prüfen</button>
+        </div>
+        <pre class="code-block" id="syncthing-output">Klicke "Status prüfen" um Syncthing zu überprüfen</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Uptime Kuma</div>
+          <button class="btn btn-sm" onclick="loadUptimeKuma()">Status prüfen</button>
+        </div>
+        <pre class="code-block" id="uptime-output">Klicke "Status prüfen" um Uptime Kuma zu überprüfen</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Nextcloud OCC</div>
+          <div class="card-actions">
+            <input id="occ-cmd" class="input" placeholder="z.B. status, upgrade:check, maintenance:mode --on" style="width:300px">
+            <button class="btn btn-sm" onclick="runNextcloudOcc()">Ausführen</button>
+          </div>
+        </div>
+        <pre class="code-block" id="occ-output">Gib einen OCC-Befehl ein</pre>
       </div>
     </div>
 
