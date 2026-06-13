@@ -1463,6 +1463,9 @@
   <header class="topbar">
     <div class="tb-title" id="tb-title">Dashboard</div>
     <div class="tb-right">
+      <select class="conn-input" id="profile-select" style="width:140px" onchange="switchProfile(this.value)">
+        <option value="local">🖥️ Lokal</option>
+      </select>
       <span class="mode-badge" id="mode-badge">Lokal</span>
       <div class="tb-stat">CPU <span class="v" id="tb-cpu">--</span></div>
       <div class="tb-stat">RAM <span class="v" id="tb-mem">--</span></div>
@@ -1999,6 +2002,35 @@
             <input id="settings-user" class="input" placeholder="root" style="flex:1">
           </div>
           <button class="btn" onclick="saveSettings()">Speichern</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Server-Profile</div>
+          <button class="btn btn-sm" onclick="showAddProfile()">+ Hinzufügen</button>
+        </div>
+        <div id="profile-list" style="padding:16px">
+          <div style="color:var(--text3)">Laden...</div>
+        </div>
+        <!-- Add Profile Form (hidden) -->
+        <div id="add-profile-form" style="padding:16px;display:none;border-top:1px solid var(--border)">
+          <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center">
+            <label style="color:var(--text2);font-size:12px">Name</label>
+            <input id="pf-name" class="input" placeholder="Mein Server">
+            <label style="color:var(--text2);font-size:12px">Host</label>
+            <input id="pf-host" class="input" placeholder="192.168.178.22">
+            <label style="color:var(--text2);font-size:12px">User</label>
+            <input id="pf-user" class="input" placeholder="root">
+            <label style="color:var(--text2);font-size:12px">Port</label>
+            <input id="pf-port" class="input" placeholder="22" type="number" value="22">
+            <label style="color:var(--text2);font-size:12px">Icon</label>
+            <input id="pf-icon" class="input" placeholder="🖥️" value="🖥️">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" onclick="addProfile()">Speichern</button>
+            <button class="btn" onclick="hideAddProfile()" style="background:var(--bg3)">Abbrechen</button>
+          </div>
         </div>
       </div>
 

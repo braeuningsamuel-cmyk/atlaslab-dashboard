@@ -188,6 +188,61 @@ struct PtyState {
     writers: Mutex<HashMap<String, PtyWriter>>,
 }
 
+// ─── Server Profiles ──────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ServerProfile {
+    pub id: String,
+    pub name: String,
+    pub host: String,
+    pub user: String,
+    pub port: u16,
+    pub icon: String,
+}
+
+struct ProfileState {
+    profiles: Mutex<Vec<ServerProfile>>,
+    active_id: Mutex<String>,
+    config_dir: std::path::PathBuf,
+}
+
+impl ProfileState {
+    fn new() -> Self {
+        let config_dir = dirs::config_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("atlaslab-dashboard");
+        let profiles_file = config_dir.join("profiles.json");
+        let profiles: Vec<ServerProfile> = if profiles_file.exists() {
+            std::fs::read_to_string(&profiles_file)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default()
+        } else {
+            vec![ServerProfile {
+                id: "local".into(),
+                name: "Lokal".into(),
+                host: "".into(),
+                user: "".into(),
+                port: 22,
+                icon: "🖥️".into(),
+            }]
+        };
+        let active_id = profiles.first().map(|p| p.id.clone()).unwrap_or_default();
+        Self {
+            profiles: Mutex::new(profiles),
+            active_id: Mutex::new(active_id),
+            config_dir,
+        }
+    }
+
+    fn save(&self) -> Result<(), String> {
+        std::fs::create_dir_all(&self.config_dir).map_err(|e| e.to_string())?;
+        let profiles = self.profiles.lock().map_err(|e| e.to_string())?;
+        let json = serde_json::to_string_pretty(&*profiles).map_err(|e| e.to_string())?;
+        std::fs::write(self.config_dir.join("profiles.json"), json).map_err(|e| e.to_string())
+    }
+}
+
 // ─── App State ──────────────────────────────────────────────────────────────
 
 pub struct AppConfig {
@@ -1432,6 +1487,93 @@ fn system_power(action: String, config: State<'_, AppConfig>) -> Result<String, 
     }
 }
 
+// ─── Server Profile Commands ─────────────────────────────────────────────
+
+#[tauri::command]
+fn profile_list(state: State<'_, ProfileState>) -> Result<Vec<ServerProfile>, String> {
+    let profiles = state.profiles.lock().map_err(|e| e.to_string())?;
+    Ok(profiles.clone())
+}
+
+#[tauri::command]
+fn profile_add(
+    name: String,
+    host: String,
+    user: String,
+    port: u16,
+    icon: String,
+    state: State<'_, ProfileState>,
+) -> Result<String, String> {
+    let id = uuid_simple();
+    let profile = ServerProfile {
+        id: id.clone(),
+        name,
+        host,
+        user,
+        port,
+        icon,
+    };
+    let mut profiles = state.profiles.lock().map_err(|e| e.to_string())?;
+    profiles.push(profile);
+    drop(profiles);
+    state.save()?;
+    Ok(id)
+}
+
+#[tauri::command]
+fn profile_remove(id: String, state: State<'_, ProfileState>) -> Result<(), String> {
+    if id == "local" {
+        return Err("Lokales Profil kann nicht gelöscht werden".to_string());
+    }
+    let mut profiles = state.profiles.lock().map_err(|e| e.to_string())?;
+    profiles.retain(|p| p.id != id);
+    drop(profiles);
+    // If active was removed, switch to first
+    let mut active = state.active_id.lock().map_err(|e| e.to_string())?;
+    if *active == id {
+        let profiles = state.profiles.lock().map_err(|e| e.to_string())?;
+        *active = profiles.first().map(|p| p.id.clone()).unwrap_or_default();
+    }
+    drop(active);
+    state.save()?;
+    Ok(())
+}
+
+#[tauri::command]
+fn profile_switch(
+    id: String,
+    state: State<'_, ProfileState>,
+    app_state: State<'_, AppConfig>,
+) -> Result<ServerProfile, String> {
+    let profiles = state.profiles.lock().map_err(|e| e.to_string())?;
+    let profile = profiles.iter().find(|p| p.id == id)
+        .ok_or_else(|| "Profil nicht gefunden".to_string())?
+        .clone();
+    drop(profiles);
+
+    // Update active
+    let mut active = state.active_id.lock().map_err(|e| e.to_string())?;
+    *active = id;
+    drop(active);
+
+    // Update AppConfig connection
+    let mut host = app_state.remote_host.lock().map_err(|e| e.to_string())?;
+    let mut user = app_state.remote_user.lock().map_err(|e| e.to_string())?;
+    *host = profile.host.clone();
+    *user = profile.user.clone();
+
+    Ok(profile)
+}
+
+#[tauri::command]
+fn profile_get_active(state: State<'_, ProfileState>) -> Result<ServerProfile, String> {
+    let active_id = state.active_id.lock().map_err(|e| e.to_string())?;
+    let profiles = state.profiles.lock().map_err(|e| e.to_string())?;
+    profiles.iter().find(|p| p.id == *active_id)
+        .cloned()
+        .ok_or_else(|| "Kein aktives Profil".to_string())
+}
+
 // ─── App Entry Point ────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1449,6 +1591,7 @@ pub fn run() {
             masters: Mutex::new(HashMap::new()),
             writers: Mutex::new(HashMap::new()),
         })
+        .manage(ProfileState::new())
         .setup(|app| {
             // Start background event emitter for live metrics
             let handle = app.handle().clone();
@@ -1563,6 +1706,12 @@ pub fn run() {
             allow_pty_write,
             allow_pty_resize,
             allow_pty_close,
+            // Profiles
+            profile_list,
+            profile_add,
+            profile_remove,
+            profile_switch,
+            profile_get_active,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

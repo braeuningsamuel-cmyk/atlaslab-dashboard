@@ -132,6 +132,8 @@ async function loadSettings() {
   document.querySelectorAll('.theme-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === getTheme());
   });
+  // Load profiles
+  loadProfiles();
 }
 
 window.saveSettings = async function () {
@@ -140,6 +142,80 @@ window.saveSettings = async function () {
   try {
     await invoke('set_connection', { host, user });
     toast('Einstellungen gespeichert');
+  } catch (e) { toast('Fehler: ' + e, 'err'); }
+}
+
+// ── Server Profiles ──
+
+window.showAddProfile = function () { document.getElementById('add-profile-form').style.display = 'block'; }
+window.hideAddProfile = function () { document.getElementById('add-profile-form').style.display = 'none'; }
+
+async function loadProfiles() {
+  try {
+    const profiles = await invoke('profile_list');
+    const active = await invoke('profile_get_active');
+    const select = document.getElementById('profile-select');
+    const list = document.getElementById('profile-list');
+    if (select) {
+      select.innerHTML = '';
+      profiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.icon + ' ' + p.name;
+        opt.selected = p.id === active.id;
+        select.appendChild(opt);
+      });
+    }
+    if (list) {
+      let html = '';
+      profiles.forEach(p => {
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:18px">${p.icon}</span>
+          <div style="flex:1">
+            <strong>${esc(p.name)}</strong>
+            <span style="color:var(--text3);font-size:12px;margin-left:8px">${esc(p.host || 'lokal')}</span>
+          </div>
+          <span style="font-size:11px;color:var(--text3)">${esc(p.user || '-')}@${esc(p.host || 'localhost')}:${p.port}</span>
+          ${p.id !== 'local' ? `<button class="btn btn-sm" onclick="removeProfile('${p.id}')" style="color:var(--red);background:none;border:none;padding:4px">✕</button>` : ''}
+        </div>`;
+      });
+      list.innerHTML = html;
+    }
+    // Update mode badge
+    const badge = document.getElementById('mode-badge');
+    if (badge) badge.textContent = active.host ? 'SSH' : 'Lokal';
+  } catch (e) {}
+}
+
+window.addProfile = async function () {
+  const name = document.getElementById('pf-name').value.trim();
+  const host = document.getElementById('pf-host').value.trim();
+  const user = document.getElementById('pf-user').value.trim();
+  const port = parseInt(document.getElementById('pf-port').value) || 22;
+  const icon = document.getElementById('pf-icon').value.trim() || '🖥️';
+  if (!name || !host) return toast('Name und Host erforderlich', 'err');
+  try {
+    await invoke('profile_add', { name, host, user, port, icon });
+    hideAddProfile();
+    loadProfiles();
+    toast('Profil hinzugefügt');
+  } catch (e) { toast('Fehler: ' + e, 'err'); }
+}
+
+window.removeProfile = async function (id) {
+  showDialog('Profil löschen', 'Bist du sicher?', '🗑️', async () => {
+    try { await invoke('profile_remove', { id }); loadProfiles(); toast('Profil gelöscht'); }
+    catch (e) { toast('Fehler: ' + e, 'err'); }
+  }, true);
+}
+
+window.switchProfile = async function (id) {
+  try {
+    const profile = await invoke('profile_switch', { id });
+    document.getElementById('host-input').value = profile.host;
+    document.getElementById('user-input').value = profile.user;
+    document.getElementById('mode-badge').textContent = profile.host ? 'SSH' : 'Lokal';
+    toast('Profil gewechselt: ' + profile.name);
   } catch (e) { toast('Fehler: ' + e, 'err'); }
 }
 
@@ -804,6 +880,7 @@ async function init() {
     await loadDashboard();
   }
   startPolling();
+  loadProfiles();
 }
 
 init().catch(e => toast('Startfehler: ' + e, 'err'));
