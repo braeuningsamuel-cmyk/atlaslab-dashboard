@@ -822,7 +822,7 @@ window.loadSysLog = async function loadSysLog() {
 // ── Ports ──
 
 window.checkPorts = async function checkPorts() {
-  const ports = [22, 53, 80, 443, 3000, 3001, 445, 51820, 8080, 8081, 8082, 8087, 8096, 8384, 8989, 7878, 9696, 6767, 9050, 9443, 11434];
+  const ports = [22, 53, 80, 443, 3000, 3001, 3002, 445, 5678, 51820, 51821, 6767, 7878, 8080, 8081, 8082, 8085, 8087, 8090, 8096, 8384, 8989, 9050, 9443, 9696, 11434];
   try {
     const results = await invoke('check_ports', { ports });
     let html = '';

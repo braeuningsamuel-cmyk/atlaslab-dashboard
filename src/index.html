@@ -1873,7 +1873,38 @@
 
     <!-- ── HOMELAB ── -->
     <div class="page" id="page-homelab">
-      <div class="section-title">Homelab-Dienste</div>
+      <div class="section-title">Dienste-Übersicht</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Dienst</th><th>Port</th><th>URL</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+            <tr><td>🛡️ Pi-hole</td><td>8081 / 53</td><td><a href="http://SERVER_IP:8081/admin" target="_blank">http://SERVER_IP:8081/admin</a></td><td>DNS + Werbeblocker</td></tr>
+            <tr><td>🔒 Unbound</td><td>5335</td><td>127.0.0.1:5335</td><td>Recursiver DNS-Resolver</td></tr>
+            <tr><td>🧅 Tor-Proxy</td><td>9050</td><td>127.0.0.1:9050</td><td>SOCKS5-Anonymität</td></tr>
+            <tr><td>🔍 Websurfx</td><td>8080</td><td><a href="http://SERVER_IP:8080" target="_blank">http://SERVER_IP:8080</a></td><td>Meta-Suchmaschine</td></tr>
+            <tr><td>🤖 Ollama</td><td>11434</td><td>127.0.0.1:11434</td><td>Lokale LLM-API</td></tr>
+            <tr><td>💬 Hermes</td><td>3000</td><td><a href="http://SERVER_IP:3000" target="_blank">http://SERVER_IP:3000</a></td><td>KI-Chat (Ollama-Frontend)</td></tr>
+            <tr><td>🌐 Open WebUI</td><td>3002</td><td><a href="http://SERVER_IP:3002" target="_blank">http://SERVER_IP:3002</a></td><td>KI-Chat-UI (Ollama)</td></tr>
+            <tr><td>⚡ n8n</td><td>5678</td><td><a href="http://SERVER_IP:5678" target="_blank">http://SERVER_IP:5678</a></td><td>Workflow-Automation</td></tr>
+            <tr><td>🎬 Jellyfin</td><td>8096</td><td><a href="http://SERVER_IP:8096" target="_blank">http://SERVER_IP:8096</a></td><td>Media-Server</td></tr>
+            <tr><td>📥 SABnzbd</td><td>8085</td><td><a href="http://SERVER_IP:8085" target="_blank">http://SERVER_IP:8085</a></td><td>Usenet-Downloader</td></tr>
+            <tr><td>📺 Sonarr</td><td>8989</td><td><a href="http://SERVER_IP:8989" target="_blank">http://SERVER_IP:8989</a></td><td>Serien-Manager</td></tr>
+            <tr><td>🎥 Radarr</td><td>7878</td><td><a href="http://SERVER_IP:7878" target="_blank">http://SERVER_IP:7878</a></td><td>Filme-Manager</td></tr>
+            <tr><td>🔎 Prowlarr</td><td>9696</td><td><a href="http://SERVER_IP:9696" target="_blank">http://SERVER_IP:9696</a></td><td>Indexer-Manager</td></tr>
+            <tr><td>📝 Bazarr</td><td>6767</td><td><a href="http://SERVER_IP:6767" target="_blank">http://SERVER_IP:6767</a></td><td>Untertitel-Manager</td></tr>
+            <tr><td>☁️ Nextcloud</td><td>8082 / 9443</td><td><a href="http://SERVER_IP:8082" target="_blank">http://SERVER_IP:8082</a></td><td>Cloud + Office</td></tr>
+            <tr><td>🔄 Syncthing</td><td>8384</td><td><a href="http://SERVER_IP:8384" target="_blank">http://SERVER_IP:8384</a></td><td>Datei-Sync</td></tr>
+            <tr><td>📊 Uptime Kuma</td><td>3001</td><td><a href="http://SERVER_IP:3001" target="_blank">http://SERVER_IP:3001</a></td><td>Monitoring</td></tr>
+            <tr><td>🏠 Heimdall</td><td>8090</td><td><a href="http://SERVER_IP:8090" target="_blank">http://SERVER_IP:8090</a></td><td>Dashboard</td></tr>
+            <tr><td>🔁 Caddy</td><td>80 / 443</td><td><a href="http://SERVER_IP" target="_blank">http://SERVER_IP</a></td><td>Reverse-Proxy</td></tr>
+            <tr><td>🎮 AMP</td><td>8087</td><td><a href="http://SERVER_IP:8087" target="_blank">http://SERVER_IP:8087</a></td><td>Game-Server-Manager</td></tr>
+            <tr><td>📦 Telegram Bot</td><td>—</td><td>@AtlasLabBot</td><td>Server-Fernsteuerung</td></tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 16px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)">SERVER_IP durch die tatsächliche IP ersetzen (z. B. 192.168.178.22)</div>
+      </div>
+
+      <div class="section-title">Steuerung</div>
 
       <div class="card">
         <div class="card-head">
