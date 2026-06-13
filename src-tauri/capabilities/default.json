@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for Atlas.Lab Dashboard main window",
+  "description": "Bootstreep Dashboard – minimal permissions",
   "windows": ["main"],
   "permissions": [
     "core:default",
