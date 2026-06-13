@@ -210,7 +210,7 @@ impl ProfileState {
     fn new() -> Self {
         let config_dir = dirs::config_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("atlaslab-dashboard");
+            .join("bootstreep-dashboard");
         let profiles_file = config_dir.join("profiles.json");
         let profiles: Vec<ServerProfile> = if profiles_file.exists() {
             std::fs::read_to_string(&profiles_file)
@@ -1134,11 +1134,11 @@ fn crontab_save(content: String, config: State<'_, AppConfig>) -> Result<String,
         ssh_write_stdin(&config, "crontab -", &content)
     } else {
         // Write to temp file and load
-        let tmp = std::env::temp_dir().join("atlaslab_crontab.tmp");
+        let tmp = std::env::temp_dir().join("bootstreep_crontab.tmp");
         std::fs::write(&tmp, &content).map_err(|e| format!("Write error: {}", e))?;
         let result = run_cmd(
             "crontab",
-            &[tmp.to_str().unwrap_or("/tmp/atlaslab_crontab.tmp")],
+            &[tmp.to_str().unwrap_or("/tmp/bootstreep_crontab.tmp")],
         );
         let _ = std::fs::remove_file(&tmp);
         result

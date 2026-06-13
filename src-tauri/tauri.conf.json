@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/v2/core/tauri-config-schema/schema.json",
-  "productName": "Atlas.Lab",
-  "version": "2.0.0",
-  "identifier": "com.atlaslab.dashboard",
+  "productName": "Bootstreep",
+  "version": "2.1.0",
+  "identifier": "com.bootstreep.dashboard",
   "build": {
     "frontendDist": "../src",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Atlas.Lab – Server Control",
+        "title": "Bootstreep – Server Control",
         "width": 1400,
         "height": 900,
         "minWidth": 360,
