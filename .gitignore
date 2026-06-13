@@ -1,0 +1,12 @@
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+src-tauri/Cargo.lock
+package-lock.json
+.DS_Store
+Thumbs.db
+*.png
+*.icns
+*.exe
+*.msi
