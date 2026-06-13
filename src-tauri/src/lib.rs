@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
-use tauri::State;
+use tauri::{Emitter, Manager, State};
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -1287,7 +1287,12 @@ fn allow_nextcloud_occ(args: String, config: State<'_, AppConfig>) -> Result<Str
 // ─── PTY Commands ─────────────────────────────────────────────────────────
 
 #[tauri::command]
-fn allow_pty_spawn(rows: u16, cols: u16, state: State<'_, PtyState>) -> Result<PTYSession, String> {
+fn allow_pty_spawn(
+    rows: u16,
+    cols: u16,
+    state: State<'_, PtyState>,
+    app: tauri::AppHandle,
+) -> Result<PTYSession, String> {
     let pty_system = native_pty_system();
     let size = PtySize {
         rows,
@@ -1308,6 +1313,10 @@ fn allow_pty_spawn(rows: u16, cols: u16, state: State<'_, PtyState>) -> Result<P
 
     let session_id = uuid_simple();
 
+    // Clone reader BEFORE taking writer (take_writer consumes the master)
+    let mut reader = pair.master.try_clone_reader()
+        .map_err(|e| format!("PTY clone_reader error: {}", e))?;
+
     let writer_raw = pair.master.take_writer()
         .map_err(|e| format!("PTY take_writer error: {}", e))?;
 
@@ -1318,6 +1327,30 @@ fn allow_pty_spawn(rows: u16, cols: u16, state: State<'_, PtyState>) -> Result<P
     let mut writers = state.writers.lock().map_err(|e| e.to_string())?;
     masters.insert(session_id.clone(), master);
     writers.insert(session_id.clone(), writer);
+
+    // Start background reader thread that emits pty-output events
+    let sid = session_id.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut buf = [0u8; 4096];
+        loop {
+            use std::io::Read;
+            match reader.read(&mut buf) {
+                Ok(0) => break, // EOF
+                Ok(n) => {
+                    let text = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let _ = app.emit("pty-output", serde_json::json!({
+                        "session": sid,
+                        "data": text
+                    }));
+                }
+                Err(_) => break,
+            }
+        }
+        let _ = app.emit("pty-output", serde_json::json!({
+            "session": sid,
+            "data": ""
+        }));
+    });
 
     Ok(PTYSession {
         id: session_id,
@@ -1415,6 +1448,55 @@ pub fn run() {
         .manage(PtyState {
             masters: Mutex::new(HashMap::new()),
             writers: Mutex::new(HashMap::new()),
+        })
+        .setup(|app| {
+            // Start background event emitter for live metrics
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(3));
+                loop {
+                    interval.tick().await;
+                    // Emit system stats event
+                    {
+                        let state = handle.state::<AppConfig>();
+                        let mut sys = state.sys.lock().unwrap();
+                        let mut nets = state.networks.lock().unwrap();
+                        let mut disks = state.disks.lock().unwrap();
+                        sys.refresh_cpu_all();
+                        sys.refresh_memory();
+                        nets.refresh(true);
+                        disks.refresh(true);
+
+                        let total_mem = sys.total_memory();
+                        let used_mem = sys.used_memory();
+                        let mem_pct = if total_mem > 0 { (used_mem as f64 / total_mem as f64 * 100.0) as f32 } else { 0.0 };
+
+                        let cpu_pct = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len().max(1) as f32;
+
+                        let (rx, tx): (u64, u64) = nets.iter().map(|(_, n)| (n.received(), n.transmitted())).fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
+
+                        #[derive(Serialize, Clone)]
+                        struct LiveMetrics {
+                            cpu: f32,
+                            mem_pct: f32,
+                            mem_used: u64,
+                            mem_total: u64,
+                            rx: u64,
+                            tx: u64,
+                        }
+
+                        let _ = handle.emit("live-metrics", LiveMetrics {
+                            cpu: cpu_pct,
+                            mem_pct,
+                            mem_used: used_mem,
+                            mem_total: total_mem,
+                            rx,
+                            tx,
+                        });
+                    }
+                }
+            });
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             // Connection

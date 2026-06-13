@@ -66,12 +66,89 @@ function showDialog(title, message, icon, onConfirm, dangerous = false) {
 
 function closeDialog() { document.getElementById('dialog-overlay').classList.remove('on'); }
 
+// ── Theme System ──
+
+function getTheme() { return localStorage.getItem('atlaslab-theme') || 'dark'; }
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('atlaslab-theme', theme);
+  document.querySelectorAll('.theme-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === theme);
+  });
+  // Also notify Tauri if available
+  try { window.__TAURI__?.window?.appWindow?.setTheme(theme === 'system' ? null : theme); } catch (e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applyTheme(getTheme());
+  // Theme button clicks
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+  });
+  // Listen for live metrics events from Tauri backend
+  try {
+    window.__TAURI__?.event?.listen('live-metrics', (e) => {
+      const m = e.payload;
+      if (!m) return;
+      // Update topbar
+      const cpuEl = document.getElementById('tb-cpu');
+      const memEl = document.getElementById('tb-mem');
+      if (cpuEl) cpuEl.textContent = m.cpu.toFixed(1) + '%';
+      if (memEl) memEl.textContent = m.mem_pct.toFixed(1) + '%';
+      // Update dashboard cards if visible
+      const dCpu = document.getElementById('d-cpu');
+      if (dCpu) {
+        dCpu.textContent = m.cpu.toFixed(1) + '%';
+        document.getElementById('d-cpu-bar').style.width = m.cpu + '%';
+        document.getElementById('d-cpu-bar').className = 'card-bar-fill ' + barColor(m.cpu);
+        document.getElementById('d-mem').textContent = m.mem_pct.toFixed(1) + '%';
+        document.getElementById('d-mem-sub').textContent = formatBytes(m.mem_used) + ' / ' + formatBytes(m.mem_total);
+        document.getElementById('d-mem-bar').style.width = m.mem_pct + '%';
+        document.getElementById('d-mem-bar').className = 'card-bar-fill ' + barColor(m.mem_pct);
+        document.getElementById('d-net-rx').textContent = formatBytes(m.rx);
+        document.getElementById('d-net-tx').textContent = formatBytes(m.tx);
+        const u = document.getElementById('dash-updated');
+        if (u) u.textContent = 'Live: ' + new Date().toLocaleTimeString('de-DE');
+        // Sparklines
+        sparkData.cpu.push(m.cpu); if (sparkData.cpu.length > SPARK_MAX) sparkData.cpu.shift();
+        sparkData.mem.push(m.mem_pct); if (sparkData.mem.length > SPARK_MAX) sparkData.mem.shift();
+        sparkline(document.getElementById('spark-cpu'), sparkData.cpu, '#6366f1');
+        sparkline(document.getElementById('spark-mem'), sparkData.mem, '#10b981');
+      }
+    });
+  } catch (e) {}
+});
+
+// ── Settings ──
+
+async function loadSettings() {
+  try {
+    const conn = await invoke('get_connection');
+    document.getElementById('settings-host').value = conn.host || '';
+    document.getElementById('settings-user').value = conn.user || '';
+  } catch (e) {}
+  // Highlight current theme
+  document.querySelectorAll('.theme-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === getTheme());
+  });
+}
+
+window.saveSettings = async function () {
+  const host = document.getElementById('settings-host').value.trim();
+  const user = document.getElementById('settings-user').value.trim();
+  try {
+    await invoke('set_connection', { host, user });
+    toast('Einstellungen gespeichert');
+  } catch (e) { toast('Fehler: ' + e, 'err'); }
+}
+
 // ── Navigation ──
 
 const pageTitles = {
   dashboard: 'Dashboard', docker: 'Docker', services: 'Services', files: 'Dateien',
   network: 'Netzwerk', storage: 'Speicher', processes: 'Prozesse', packages: 'Pakete',
-  users: 'Benutzer', crontab: 'Crontab', homelab: 'Homelab', terminal: 'Terminal', logs: 'Logs', ports: 'Ports', power: 'Power'
+  users: 'Benutzer', crontab: 'Crontab', homelab: 'Homelab', terminal: 'Terminal', logs: 'Logs', ports: 'Ports', power: 'Power', settings: 'Einstellungen'
 };
 
 function showPage(name) {
@@ -89,7 +166,8 @@ function showPage(name) {
     docker: loadDocker, services: loadServices, files: loadFiles, network: loadNetwork,
     storage: loadStorage, processes: loadProcesses, packages: () => { }, users: loadUsers,
     crontab: loadCrontab, ports: checkPorts, homelab: () => { },
-    terminal: () => { initPty(); document.getElementById('term-input').focus(); }
+    terminal: () => { initPty(); document.getElementById('term-input').focus(); },
+    settings: loadSettings
   };
   if (loaders[name]) loaders[name]();
 }
@@ -542,17 +620,34 @@ async function initPty() {
     const session = await invoke('allow_pty_spawn', { rows, cols });
     ptySessionId = session.id;
 
-    document.getElementById('term-output').textContent = 'PTY Session gestartet (' + session.id + ')\n\n';
-    readPtyOutput();
+    term.textContent = 'PTY Session gestartet (' + session.id + ')\n\n';
+    term.scrollTop = 99999;
+
+    // Listen for PTY output events
+    try {
+      ptyUnlisten = await window.__TAURI__?.event?.listen('pty-output', (e) => {
+        const m = e.payload;
+        if (m.session !== ptySessionId) return;
+        const out = document.getElementById('term-output');
+        if (!out) return;
+        if (m.data === '') {
+          // EOF - session closed
+          out.textContent += '\n[Session beendet]\n';
+          ptySessionId = null;
+          return;
+        }
+        // Strip ANSI escape sequences for display
+        const clean = m.data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+        out.textContent += clean;
+        out.scrollTop = 99999;
+      });
+    } catch (e) {}
   } catch (e) {
     document.getElementById('term-output').textContent = 'PTY Fehler: ' + e + '\n';
   }
 }
 
-async function readPtyOutput() {
-  // PTY output is streamed via the shell process - fall back to run_command for output
-  // In a future version, we'll use PTY reader thread with events
-}
+let ptyUnlisten = null;
 
 document.getElementById('term-input').addEventListener('keydown', async function (e) {
   if (e.key === 'Enter') {
@@ -584,6 +679,7 @@ document.getElementById('term-input').addEventListener('keydown', async function
 });
 
 async function cleanupPty() {
+  if (ptyUnlisten) { try { ptyUnlisten(); } catch (e) {} ptyUnlisten = null; }
   if (ptySessionId) {
     try { await invoke('allow_pty_close', { sessionId: ptySessionId }); } catch (e) {}
     ptySessionId = null;
@@ -688,7 +784,7 @@ function startPolling() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = setInterval(() => {
     if (currentPage === 'dashboard' && connected) loadDashboard();
-  }, 3000);
+  }, 30000); // Full refresh every 30s; live-metrics events handle real-time CPU/mem
 }
 
 // ── Init ──
