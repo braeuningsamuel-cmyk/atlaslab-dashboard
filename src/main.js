@@ -68,11 +68,11 @@ function closeDialog() { document.getElementById('dialog-overlay').classList.rem
 
 // ── Theme System ──
 
-function getTheme() { return localStorage.getItem('atlaslab-theme') || 'dark'; }
+function getTheme() { return localStorage.getItem('bootstreep-theme') || 'dark'; }
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('atlaslab-theme', theme);
+  localStorage.setItem('bootstreep-theme', theme);
   document.querySelectorAll('.theme-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === theme);
   });
@@ -283,8 +283,8 @@ function updateModeBadge(mode, host) {
 async function applyConnection() {
   const host = (document.getElementById('host-input').value || document.getElementById('m-host')?.value || '').trim();
   const user = (document.getElementById('user-input').value || document.getElementById('m-user')?.value || '').trim();
-  localStorage.setItem('atlaslab-host', host);
-  localStorage.setItem('atlaslab-user', user);
+  localStorage.setItem('bootstreep-host', host);
+  localStorage.setItem('bootstreep-user', user);
   const info = await invoke('set_connection', { host, user });
   updateModeBadge(info.mode, info.host);
   return info;
@@ -822,7 +822,7 @@ window.loadSysLog = async function loadSysLog() {
 // ── Ports ──
 
 window.checkPorts = async function checkPorts() {
-  const ports = [22, 53, 80, 443, 3000, 3001, 3002, 445, 5678, 9987, 10011, 30033, 51820, 51821, 6767, 7878, 8080, 8081, 8082, 8085, 8087, 8088, 8090, 8096, 8384, 8989, 9050, 9443, 9696, 11434];
+  const ports = [22, 53, 80, 443, 3000, 3001, 3002, 445, 5678, 9987, 10011, 30033, 51820, 51821, 6767, 7878, 8080, 8081, 8082, 8085, 8087, 8088, 8090, 8091, 8096, 8384, 8989, 9050, 9443, 9696, 11434, 21027, 22000];
   try {
     const results = await invoke('check_ports', { ports });
     let html = '';
@@ -868,8 +868,8 @@ function startPolling() {
 // ── Init ──
 
 async function init() {
-  const savedHost = localStorage.getItem('atlaslab-host');
-  const savedUser = localStorage.getItem('atlaslab-user');
+  const savedHost = localStorage.getItem('bootstreep-host');
+  const savedUser = localStorage.getItem('bootstreep-user');
   if (savedHost) { document.getElementById('host-input').value = savedHost; if (document.getElementById('m-host')) document.getElementById('m-host').value = savedHost; }
   if (savedUser) { document.getElementById('user-input').value = savedUser; if (document.getElementById('m-user')) document.getElementById('m-user').value = savedUser; }
   await applyConnection();
