@@ -224,5 +224,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <p align="center">
   <sub>Built with Tauri 2.x · Rust · Vanilla JS</sub><br>
-  <sub>Bootstreep Dashboard v2.1.0</sub>
+  <sub>Bootstreep Dashboard v2.5.0</sub>
 </p>

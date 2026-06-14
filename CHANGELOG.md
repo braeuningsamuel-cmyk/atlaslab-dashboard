@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.5.0 (2026-06-14) – 30-Bug Audit
+
+### Security
+- **capabilities**: 44 `bootstreep:allow-*` Berechtigungen hinzugefügt
+- **lib.rs**: Signal-Whitelist validierung für `process_kill`
+
+### Fixes
+- **index.html**: Fehlende CSS-Klassen hinzugefügt (btn, card-head, etc.)
+- **index.html**: Version v2.1.0 → v2.5.0 aktualisiert
+- **tauri.conf.json**: `withGlobalTauri: true` + CSP korrigiert
+- **README.md**: Placeholder URLs durch echte Repo-Links ersetzt
+
+## v2.4.1 (2026-06-14)
+
+### Fixes
+- Bootstreep Rename: Alle Atlas.Lab Referenzen entfernt
+
+## v2.4.0 (2026-06-14)
+
+### Fixes
+- Terminal PTY Shell Fallback: `powershell.exe` auf Windows
+
+## v2.3.0 (2026-06-14)
+
+### Fixes
+- Speicher Badge Ternary korrigiert (70-90% zeigt jetzt gelb)
+- Prozess Memory Display Bug gefixt
+
+## v2.2.0 (2026-06-14)
+
+### Fixes
+- Terminal `\n` → `<br>` für Newline Rendering
+- `badge-warning` CSS-Klasse hinzugefügt
+
 ## v2.1.0 (2026-06-13)
 
 ### Features
