@@ -1108,8 +1108,13 @@ fn process_kill(
     signal: Option<String>,
     config: State<'_, AppConfig>,
 ) -> Result<String, String> {
+    let valid_signals = ["TERM", "KILL", "HUP", "INT", "QUIT", "USR1", "USR2", "STOP", "CONT"];
     let sig = signal.unwrap_or_else(|| "TERM".to_string());
-    let cmd = format!("kill -{} {}", sig, pid);
+    let sig_upper = sig.to_uppercase();
+    if !valid_signals.contains(&sig_upper.as_str()) {
+        return Err(format!("Ungültiger Signal: {}. Erlaubt: {}", sig, valid_signals.join(", ")));
+    }
+    let cmd = format!("kill -{} {}", sig_upper, pid);
     if is_remote(&config) {
         run_ssh(&config, &cmd)
     } else {
@@ -1428,7 +1433,6 @@ fn allow_pty_write(
         .get(&session_id)
         .ok_or_else(|| "Session not found".to_string())?;
     let mut w = writer.blocking_lock();
-    use std::io::Write;
     w.write_all(data.as_bytes())
         .map_err(|e| format!("PTY write error: {}", e))?;
     Ok(())
