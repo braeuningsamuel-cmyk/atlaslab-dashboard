@@ -54,7 +54,7 @@
 
 ## Screenshots
 
-> *Desktop app with Dashboard, Docker, Terminal, and Homelab views*
+> Dashboard: Echtzeit CPU/RAM/Disk · Docker Control · Pi-hole DNS · Terminal · Multi-Profil
 
 ## Installation
 
@@ -62,8 +62,8 @@
 
 Download the latest release from [GitHub Releases](https://github.com/braeuningsamuel-cmyk/bootstreep-dashboard/releases):
 
-- **Windows**: `Bootstreep_2.1.0_x64-setup.exe` (~2 MB)
-- **Windows MSI**: `Bootstreep_2.1.0_x64_en-US.msi` (~3 MB)
+- **Windows**: `Bootstreep_2.5.0_x64-setup.exe` (~2 MB)
+- **Windows MSI**: `Bootstreep_2.5.0_x64_en-US.msi` (~3 MB)
 
 ### Build from Source
 
@@ -226,3 +226,4 @@ MIT License - see [LICENSE](LICENSE) for details.
   <sub>Built with Tauri 2.x Â· Rust Â· Vanilla JS</sub><br>
   <sub>Bootstreep Dashboard v2.5.0</sub>
 </p>
+
