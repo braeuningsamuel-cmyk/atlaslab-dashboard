@@ -1,6 +1,6 @@
 [package]
 name = "bootstreep-dashboard"
-version = "2.1.0"
+version = "2.6.1"
 edition = "2021"
 
 [lib]
@@ -25,3 +25,4 @@ strip = true
 lto = true
 codegen-units = 1
 opt-level = "s"
+

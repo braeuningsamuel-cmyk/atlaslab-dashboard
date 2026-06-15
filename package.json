@@ -1,6 +1,6 @@
 {
   "name": "bootstreep-dashboard",
-  "version": "2.1.0",
+  "version": "2.6.1",
   "description": "Bootstreep Homelab Server Dashboard - Tauri 2.x Desktop App",
   "author": "Bootstreep",
   "license": "MIT",
@@ -27,3 +27,4 @@
   },
   "packageManager": "npm@10.9.8"
 }
+
