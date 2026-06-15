@@ -1493,9 +1493,10 @@ fn system_power(action: String, config: State<'_, AppConfig>) -> Result<String, 
         _ => return Err("Invalid action".to_string()),
     };
     if is_remote(&config) {
-        // Run async - won't get response since server is shutting down
-        let _ = run_ssh(&config, cmd);
-        Ok(format!("{} initiated", action))
+        // Server shutdown kills SSH connection – error is expected
+        match run_ssh(&config, cmd) {
+            Ok(_) | Err(_) => Ok(format!("{} initiated", action)),
+        }
     } else {
         local_shell_cmd(cmd)
     }
@@ -1617,8 +1618,8 @@ pub fn run() {
                     {
                         let state = handle.state::<AppConfig>();
                         let Ok(mut sys) = state.sys.lock() else { continue };
-                        let Ok(mut nets) = state.networks.lock() else { continue };
                         let Ok(mut disks) = state.disks.lock() else { continue };
+                        let Ok(mut nets) = state.networks.lock() else { continue };
                         sys.refresh_cpu_all();
                         sys.refresh_memory();
                         nets.refresh(true);

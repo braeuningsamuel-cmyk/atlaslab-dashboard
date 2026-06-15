@@ -24,8 +24,16 @@ jobs:
           cache: npm
       - name: Install npm dependencies
         run: npm ci
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
       - name: Check Rust compilation
-        run: cargo check
+        run: cargo check --locked
         working-directory: src-tauri
 
   lint:
@@ -38,11 +46,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
       - name: Install npm dependencies
         run: npm ci
       - name: Lint HTML/CSS/JS
-        run: npx html-validate src/index.html || true
+        run: npx html-validate src/index.html
       - name: Lint Rust
         run: cargo clippy -- -D warnings
         working-directory: src-tauri
-        continue-on-error: true

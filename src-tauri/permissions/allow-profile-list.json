@@ -2,5 +2,5 @@
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/v2/tooling/cli/schema.json#/definitions/Permission",
   "identifier": "allow-profile-list",
   "description": "Allow listing server profiles",
-  "commands": ["allow_profile_list"]
+  "commands": ["profile_list"]
 }

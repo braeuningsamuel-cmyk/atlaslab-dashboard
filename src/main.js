@@ -79,7 +79,7 @@ function applyTheme(theme) {
     b.classList.toggle('active', b.dataset.theme === theme);
   });
   // Also notify Tauri if available
-  try { window.__TAURI__?.window?.appWindow?.setTheme(theme === 'system' ? null : theme); } catch (e) {}
+  try { window.__TAURI__?.window?.appWindow?.setTheme(theme === 'system' ? null : theme); } catch (e) { console.error('setTheme:', e); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -121,7 +121,7 @@ async function initLiveMetrics() {
         sparkline(document.getElementById('spark-mem'), sparkData.mem, '#10b981');
       }
     });
-  } catch (e) {}
+  } catch (e) { console.error('initLiveMetrics:', e); }
 }
 
 // ── Settings ──
@@ -131,7 +131,7 @@ async function loadSettings() {
     const conn = await invoke('get_connection');
     document.getElementById('settings-host').value = conn.host || '';
     document.getElementById('settings-user').value = conn.user || '';
-  } catch (e) {}
+  } catch (e) { console.error('loadSettings:', e); }
   // Highlight current theme
   document.querySelectorAll('.theme-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === getTheme());
@@ -180,7 +180,7 @@ async function loadProfiles() {
             <span style="color:var(--text3);font-size:12px;margin-left:8px">${esc(p.host || 'lokal')}</span>
           </div>
           <span style="font-size:11px;color:var(--text3)">${esc(p.user || '-')}@${esc(p.host || 'localhost')}:${p.port}</span>
-          ${p.id !== 'local' ? `<button class="btn btn-sm" onclick="removeProfile('${p.id}')" style="color:var(--red);background:none;border:none;padding:4px">✕</button>` : ''}
+          ${p.id !== 'local' ? `<button class="btn btn-sm" data-action="removeProfile" data-arg="${p.id}" style="color:var(--red);background:none;border:none;padding:4px">✕</button>` : ''}
         </div>`;
       });
       list.innerHTML = html;
@@ -188,7 +188,7 @@ async function loadProfiles() {
     // Update mode badge
     const badge = document.getElementById('mode-badge');
     if (badge) badge.textContent = active.host ? 'SSH' : 'Lokal';
-  } catch (e) {}
+  } catch (e) { console.error('loadProfiles:', e); }
 }
 
 window.addProfile = async function () {
@@ -719,7 +719,7 @@ async function initPty() {
         out.textContent += clean;
         out.scrollTop = 99999;
       });
-    } catch (e) {}
+    } catch (e) { console.error('pty listen:', e); }
   } catch (e) {
     document.getElementById('term-output').textContent = 'PTY Fehler: ' + e + '\n';
   }
@@ -755,9 +755,9 @@ document.getElementById('term-input').addEventListener('keydown', async function
 });
 
 async function cleanupPty() {
-  if (ptyUnlisten) { try { ptyUnlisten(); } catch (e) {} ptyUnlisten = null; }
+  if (ptyUnlisten) { try { ptyUnlisten(); } catch (e) { console.error('pty unlisten:', e); } ptyUnlisten = null; }
   if (ptySessionId) {
-    try { await invoke('allow_pty_close', { sessionId: ptySessionId }); } catch (e) {}
+    try { await invoke('allow_pty_close', { sessionId: ptySessionId }); } catch (e) { console.error('pty close:', e); }
     ptySessionId = null;
   }
 }
@@ -919,6 +919,26 @@ document.addEventListener('click', e => {
   else if (action === 'openFile') { openFile(arg); }
   else if (action === 'deleteFile') { deleteFile(btn.dataset.path, btn.dataset.name, btn.dataset.isdir === 'true'); }
   else if (action === 'killProc') { killProc(arg); }
+  else if (action === 'removeProfile') { removeProfile(arg); }
+  else if (action === 'loadWireGuard') { loadWireGuard(); }
+  else if (action === 'loadJellyfin') { loadJellyfin(); }
+  else if (action === 'loadArrStack') { loadArrStack(); }
+  else if (action === 'loadOllama') { loadOllama(); }
+  else if (action === 'loadSyncthing') { loadSyncthing(); }
+  else if (action === 'loadUptimeKuma') { loadUptimeKuma(); }
+  else if (action === 'runNextcloudOcc') { runNextcloudOcc(); }
+  else if (action === 'saveSettings') { saveSettings(); }
+  else if (action === 'showAddProfile') { showAddProfile(); }
+  else if (action === 'addProfile') { addProfile(); }
+  else if (action === 'hideAddProfile') { hideAddProfile(); }
+  else if (action === 'switchProfile') { switchProfile(btn.value); }
+});
+
+document.addEventListener('change', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  if (action === 'switchProfile') { switchProfile(btn.value); }
 });
 
 document.addEventListener('input', e => {

@@ -1547,7 +1547,7 @@
   <header class="topbar">
     <div class="tb-title" id="tb-title">Dashboard</div>
     <div class="tb-right">
-      <select class="conn-input" id="profile-select" style="width:140px" onchange="switchProfile(this.value)">
+      <select class="conn-input" id="profile-select" style="width:140px" data-action="switchProfile">
         <option value="local">🖥️ Lokal</option>
       </select>
       <span class="mode-badge" id="mode-badge">Lokal</span>
@@ -1992,7 +1992,7 @@
       <div class="card">
         <div class="card-head">
           <div class="card-title">WireGuard VPN</div>
-          <button class="btn btn-sm" onclick="loadWireGuard()">Aktualisieren</button>
+          <button class="btn btn-sm" data-action="loadWireGuard">Aktualisieren</button>
         </div>
         <pre class="code-block" id="wg-output">Klicke "Aktualisieren" um WireGuard-Peers anzuzeigen</pre>
       </div>
@@ -2007,7 +2007,7 @@
               <option value="libraries">Bibliotheken</option>
               <option value="restart">Neustart</option>
             </select>
-            <button class="btn btn-sm" onclick="loadJellyfin()">Ausführen</button>
+            <button class="btn btn-sm" data-action="loadJellyfin">Ausführen</button>
           </div>
         </div>
         <pre class="code-block" id="jellyfin-output">Wähle eine Aktion und klicke "Ausführen"</pre>
@@ -2016,7 +2016,7 @@
       <div class="card">
         <div class="card-head">
           <div class="card-title">Arr-Stack (Sonarr/Radarr/Lidarr)</div>
-          <button class="btn btn-sm" onclick="loadArrStack()">Status prüfen</button>
+          <button class="btn btn-sm" data-action="loadArrStack">Status prüfen</button>
         </div>
         <pre class="code-block" id="arr-output">Klicke "Status prüfen" um den Arr-Stack zu überprüfen</pre>
       </div>
@@ -2029,7 +2029,7 @@
               <option value="list">Modelle anzeigen</option>
               <option value="ps">Laufende Modelle</option>
             </select>
-            <button class="btn btn-sm" onclick="loadOllama()">Ausführen</button>
+            <button class="btn btn-sm" data-action="loadOllama">Ausführen</button>
           </div>
         </div>
         <pre class="code-block" id="ollama-output">Wähle eine Aktion und klicke "Ausführen"</pre>
@@ -2038,7 +2038,7 @@
       <div class="card">
         <div class="card-head">
           <div class="card-title">Syncthing</div>
-          <button class="btn btn-sm" onclick="loadSyncthing()">Status prüfen</button>
+          <button class="btn btn-sm" data-action="loadSyncthing">Status prüfen</button>
         </div>
         <pre class="code-block" id="syncthing-output">Klicke "Status prüfen" um Syncthing zu überprüfen</pre>
       </div>
@@ -2046,7 +2046,7 @@
       <div class="card">
         <div class="card-head">
           <div class="card-title">Uptime Kuma</div>
-          <button class="btn btn-sm" onclick="loadUptimeKuma()">Status prüfen</button>
+          <button class="btn btn-sm" data-action="loadUptimeKuma">Status prüfen</button>
         </div>
         <pre class="code-block" id="uptime-output">Klicke "Status prüfen" um Uptime Kuma zu überprüfen</pre>
       </div>
@@ -2056,7 +2056,7 @@
           <div class="card-title">Nextcloud OCC</div>
           <div class="card-actions">
             <input id="occ-cmd" class="input" placeholder="z.B. status, upgrade:check, maintenance:mode --on" style="width:300px">
-            <button class="btn btn-sm" onclick="runNextcloudOcc()">Ausführen</button>
+            <button class="btn btn-sm" data-action="runNextcloudOcc">Ausführen</button>
           </div>
         </div>
         <pre class="code-block" id="occ-output">Gib einen OCC-Befehl ein</pre>
@@ -2120,14 +2120,14 @@
             <label style="color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">SSH User</label>
             <input id="settings-user" class="input" placeholder="root" style="flex:1">
           </div>
-          <button class="btn" onclick="saveSettings()">Speichern</button>
+          <button class="btn" data-action="saveSettings">Speichern</button>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
           <div class="card-title">Server-Profile</div>
-          <button class="btn btn-sm" onclick="showAddProfile()">+ Hinzufügen</button>
+          <button class="btn btn-sm" data-action="showAddProfile">+ Hinzufügen</button>
         </div>
         <div id="profile-list" style="padding:16px">
           <div style="color:var(--text3)">Laden...</div>
@@ -2147,8 +2147,8 @@
             <input id="pf-icon" class="input" placeholder="🖥️" value="🖥️">
           </div>
           <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn" onclick="addProfile()">Speichern</button>
-            <button class="btn" onclick="hideAddProfile()" style="background:var(--bg3)">Abbrechen</button>
+            <button class="btn" data-action="addProfile">Speichern</button>
+            <button class="btn" data-action="hideAddProfile" style="background:var(--bg3)">Abbrechen</button>
           </div>
         </div>
       </div>

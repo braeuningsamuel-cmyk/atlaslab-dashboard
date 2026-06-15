@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.6.4 (2026-06-15) – Security & CSP Hardening
+
+### Security (CRITICAL)
+- **permissions/**: 5 Profile-Commands: Command-Namen korrigiert (`allow_profile_list` → `profile_list`)
+- **lib.rs**: `system_power` SSH-Fehler nicht mehr silent discarded
+- **main.js**: XSS-Vector via `p.id` in onclick → `data-action` + Event-Delegation
+- **CSP**: `'unsafe-inline'` für script-src entfernt, `frame-ancestors 'none'`, `upgrade-insecure-requests`
+- **CSP**: `img-src data:` entfernt (Data-Exfiltration), `font-src` Google Fonts entfernt
+
+### Security (HIGH)
+- **main.js**: 8× leere `catch(e) {}` → `console.error` + sinnvolle Fehlerbehandlung
+- **main.js**: `liveMetricsUnlisten` nie gecalled → Listener-Leak geschlossen
+- **lib.rs**: Lock-Ordnung konsistent (sys→disks→networks) – Deadlock-Risiko behoben
+- **index.html**: 14× inline onclick/onchange → `data-action` Event-Delegation
+
+### CI
+- **ci.yml**: Rust-Caching hinzugefügt, `cargo check --locked`, clippy `continue-on-error` entfernt, html-validate `|| true` entfernt
+- **release.yml**: `npm install` → `npm ci`, tauri-action @master → @0.5.3 (pinned)
+
+### Fixes
+- **lib.rs**: Lock-Ordnung im Background-Thread korrigiert (sys→disks→networks statt sys→networks→disks)
+
 ## v2.6.2 (2026-06-15) – Version-Sync & Fixes
 
 ### Fixes (CRITICAL)

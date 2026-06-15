@@ -2,5 +2,5 @@
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/v2/tooling/cli/schema.json#/definitions/Permission",
   "identifier": "allow-profile-get-active",
   "description": "Allow getting active server profile",
-  "commands": ["allow_profile_get_active"]
+  "commands": ["profile_get_active"]
 }
