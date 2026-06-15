@@ -296,12 +296,12 @@ fn uuid_simple() -> String {
 }
 
 fn is_remote(config: &AppConfig) -> bool {
-    !config.remote_host.lock().unwrap().is_empty()
+    config.remote_host.lock().map(|h| !h.is_empty()).unwrap_or(false)
 }
 
 fn run_ssh(config: &AppConfig, remote_cmd: &str) -> Result<String, String> {
-    let host = config.remote_host.lock().unwrap().clone();
-    let user = config.remote_user.lock().unwrap().clone();
+    let host = config.remote_host.lock().map_err(|e| e.to_string())?.clone();
+    let user = config.remote_user.lock().map_err(|e| e.to_string())?.clone();
     let target = ssh_target(&host, &user);
     run_cmd(
         "ssh",
@@ -316,8 +316,8 @@ fn run_ssh(config: &AppConfig, remote_cmd: &str) -> Result<String, String> {
 }
 
 fn ssh_write_stdin(config: &AppConfig, remote_cmd: &str, input: &str) -> Result<String, String> {
-    let host = config.remote_host.lock().unwrap().clone();
-    let user = config.remote_user.lock().unwrap().clone();
+    let host = config.remote_host.lock().map_err(|e| e.to_string())?.clone();
+    let user = config.remote_user.lock().map_err(|e| e.to_string())?.clone();
     let target = ssh_target(&host, &user);
 
     let mut child = Command::new("ssh")
@@ -380,7 +380,7 @@ fn local_shell_cmd(cmd: &str) -> Result<String, String> {
 // ─── System Stats ───────────────────────────────────────────────────────────
 
 fn local_system_stats(config: &AppConfig) -> Result<SystemStats, String> {
-    let mut sys = config.sys.lock().unwrap();
+    let mut sys = config.sys.lock().map_err(|e| e.to_string())?;
     sys.refresh_all();
 
     let cpu_usage = sys.global_cpu_usage();
@@ -392,7 +392,7 @@ fn local_system_stats(config: &AppConfig) -> Result<SystemStats, String> {
         0.0
     };
 
-    let mut disks = config.disks.lock().unwrap();
+    let mut disks = config.disks.lock().map_err(|e| e.to_string())?;
     disks.refresh(true);
     let (disk_used, disk_total, disk_percent) = if let Some(disk) = disks.first() {
         let disk_total = disk.total_space();
@@ -407,7 +407,7 @@ fn local_system_stats(config: &AppConfig) -> Result<SystemStats, String> {
         (0, 0, 0.0)
     };
 
-    let mut networks = config.networks.lock().unwrap();
+    let mut networks = config.networks.lock().map_err(|e| e.to_string())?;
     networks.refresh(true);
     let mut network_rx: u64 = 0;
     let mut network_tx: u64 = 0;
@@ -506,15 +506,17 @@ fn set_connection(
     user: String,
     config: State<'_, AppConfig>,
 ) -> Result<ConnectionInfo, String> {
-    *config.remote_host.lock().unwrap() = host.trim().to_string();
-    *config.remote_user.lock().unwrap() = user.trim().to_string();
+    *config.remote_host.lock().map_err(|e| e.to_string())? = host.trim().to_string();
+    *config.remote_user.lock().map_err(|e| e.to_string())? = user.trim().to_string();
     get_connection(config)
 }
 
 #[tauri::command]
 fn get_connection(config: State<'_, AppConfig>) -> Result<ConnectionInfo, String> {
-    let host = config.remote_host.lock().unwrap().clone();
-    let user = config.remote_user.lock().unwrap().clone();
+    let host_guard = config.remote_host.lock().map_err(|e| e.to_string())?;
+    let host = host_guard.clone();
+    let user_guard = config.remote_user.lock().map_err(|e| e.to_string())?;
+    let user = user_guard.clone();
     let mode = if host.is_empty() {
         "local".to_string()
     } else {
@@ -740,7 +742,7 @@ fn service_action(
 
 #[tauri::command]
 fn check_ports(ports: Vec<u16>, config: State<'_, AppConfig>) -> Result<Vec<PortCheck>, String> {
-    let host = config.remote_host.lock().unwrap().clone();
+    let host = config.remote_host.lock().map_err(|e| e.to_string())?.clone();
     let target = if host.is_empty() {
         "127.0.0.1".to_string()
     } else {
@@ -835,9 +837,15 @@ fn file_list(path: String, config: State<'_, AppConfig>) -> Result<Vec<FileEntry
             std::fs::read_dir(p).map_err(|e| format!("Cannot read directory {}: {}", path, e))?;
         for entry in rd {
             if let Ok(entry) = entry {
-                let metadata = entry.metadata().unwrap_or_else(|_| {
-                    std::fs::metadata(entry.path()).expect("cannot get metadata")
-                });
+                let metadata = match entry.metadata() {
+                    Ok(m) => m,
+                    Err(_) => match std::fs::metadata(entry.path()) {
+                        Ok(m) => m,
+                        Err(_) => {
+                            continue;
+                        }
+                    },
+                };
                 let modified = metadata
                     .modified()
                     .map(|t| {
@@ -1030,7 +1038,7 @@ fn storage_info(config: State<'_, AppConfig>) -> Result<Vec<StorageMount>, Strin
         }
         Ok(mounts)
     } else {
-        let mut disks = config.disks.lock().unwrap();
+        let mut disks = config.disks.lock().map_err(|e| e.to_string())?;
         disks.refresh(true);
         let mut mounts = Vec::new();
         for disk in disks.iter() {
@@ -1079,7 +1087,7 @@ fn process_list(config: State<'_, AppConfig>) -> Result<Vec<ProcessInfo>, String
         }
         Ok(procs)
     } else {
-        let mut sys = config.sys.lock().unwrap();
+        let mut sys = config.sys.lock().map_err(|e| e.to_string())?;
         sys.refresh_all();
         let mut procs: Vec<ProcessInfo> = sys
             .processes()
@@ -1114,11 +1122,12 @@ fn process_kill(
     if !valid_signals.contains(&sig_upper.as_str()) {
         return Err(format!("Ungültiger Signal: {}. Erlaubt: {}", sig, valid_signals.join(", ")));
     }
-    let cmd = format!("kill -{} {}", sig_upper, pid);
+    let sig_str = format!("-{}", sig_upper);
+    let pid_str = pid.to_string();
     if is_remote(&config) {
-        run_ssh(&config, &cmd)
+        run_ssh(&config, &format!("kill {} {}", sig_str, pid_str))
     } else {
-        local_shell_cmd(&cmd)
+        run_cmd("kill", &[&sig_str, &pid_str])
     }
 }
 
@@ -1139,12 +1148,10 @@ fn crontab_save(content: String, config: State<'_, AppConfig>) -> Result<String,
         ssh_write_stdin(&config, "crontab -", &content)
     } else {
         // Write to temp file and load
-        let tmp = std::env::temp_dir().join("bootstreep_crontab.tmp");
+        let tmp = std::env::temp_dir().join(format!("bootstreep_crontab_{}.tmp", std::process::id()));
         std::fs::write(&tmp, &content).map_err(|e| format!("Write error: {}", e))?;
-        let result = run_cmd(
-            "crontab",
-            &[tmp.to_str().unwrap_or("/tmp/bootstreep_crontab.tmp")],
-        );
+        let tmp_str = tmp.to_str().ok_or("Invalid temp path")?.to_string();
+        let result = run_cmd("crontab", &[&tmp_str]);
         let _ = std::fs::remove_file(&tmp);
         result
     }
@@ -1609,9 +1616,9 @@ pub fn run() {
                     // Emit system stats event
                     {
                         let state = handle.state::<AppConfig>();
-                        let mut sys = state.sys.lock().unwrap();
-                        let mut nets = state.networks.lock().unwrap();
-                        let mut disks = state.disks.lock().unwrap();
+                        let Ok(mut sys) = state.sys.lock() else { continue };
+                        let Ok(mut nets) = state.networks.lock() else { continue };
+                        let Ok(mut disks) = state.disks.lock() else { continue };
                         sys.refresh_cpu_all();
                         sys.refresh_memory();
                         nets.refresh(true);

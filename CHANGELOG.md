@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.6.2 (2026-06-15) – Version-Sync & Fixes
+
+### Fixes (CRITICAL)
+- **tauri.conf.json**: `$schema` nicedoc/tauri → tauri-apps/tauri (Typosquatting)
+- **tauri.conf.json**: Version `2.1.0` → `2.6.2`
+- **capabilities/default.json**: `bootstreep:` → `bootstreep-dashboard:` (43 Einträge)
+- **lib.rs**: 5 Profile-Commands: Permission-Files + Capabilities hinzugefügt
+- **lib.rs**: SSH-Quoting in `docker_exec` verbessert
+
+### Fixes (HIGH)
+- **lib.rs**: 18× `.lock().unwrap()` → `.lock().map_err()` (kein Panic bei Mutex-Poisoning)
+- **lib.rs**: `.expect("cannot get metadata")` → graceful error handling (skip entry)
+- **Cargo.toml**: Version `2.6.1` → `2.6.2`
+- **index.html**: Version `v2.1.0` → `v2.6.2` (Sidebar + About)
+- **CHANGELOG.md**: v2.6.0, v2.6.1, v2.6.2 Einträge ergänzt
+
+### Fixes (MEDIUM)
+- **main.js**: `ptyUnlisten` / `ptySessionId` Deklaration vor Erstnutzung
+- **tauri.conf.json**: CSP `connect-src`: `ipc://localhost` entfernt (Tauri 1 Legacy)
+- **README.md**: Download-Links `2.5.0` → `2.6.2`
+- **README.md**: Footer `v2.6.0` → `v2.6.2`
+
+### Fixes (LOW)
+- **lib.rs**: Temp-File-Cleanup in `crontab_save` (PID-basierter Name + Fallback korrigiert)
+- **permissions/**: `fs-scope-homelab.json`, `shell-scope-homelab.json`: Unreferenzierte Dateien bereinigt
+
 ## v2.5.0 (2026-06-14) – 30-Bug Audit
 
 ### Security

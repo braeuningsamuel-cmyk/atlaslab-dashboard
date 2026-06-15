@@ -9,6 +9,8 @@ let serviceData = [];
 let procData = [];
 let currentFilePath = '/';
 let editingFilePath = '';
+let ptyUnlisten = null;
+let ptySessionId = null;
 let termHistory = [];
 let termHistIdx = -1;
 
@@ -687,8 +689,6 @@ window.saveCrontab = async function saveCrontab() {
 
 // ── Terminal (PTY) ──
 
-let ptySessionId = null;
-
 async function initPty() {
   if (ptySessionId) return;
   try {
@@ -724,8 +724,6 @@ async function initPty() {
     document.getElementById('term-output').textContent = 'PTY Fehler: ' + e + '\n';
   }
 }
-
-let ptyUnlisten = null;
 
 document.getElementById('term-input').addEventListener('keydown', async function (e) {
   if (e.key === 'Enter') {

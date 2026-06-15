@@ -54,7 +54,7 @@
 
 ## Screenshots
 
-> Dashboard: Echtzeit CPU/RAM/Disk · Docker Control · Pi-hole DNS · Terminal · Multi-Profil
+> Dashboard: Echtzeit CPU/RAM/Disk ï¿½ Docker Control ï¿½ Pi-hole DNS ï¿½ Terminal ï¿½ Multi-Profil
 
 ## Installation
 
@@ -62,8 +62,8 @@
 
 Download the latest release from [GitHub Releases](https://github.com/braeuningsamuel-cmyk/bootstreep-dashboard/releases):
 
-- **Windows**: `Bootstreep_2.5.0_x64-setup.exe` (~2 MB)
-- **Windows MSI**: `Bootstreep_2.5.0_x64_en-US.msi` (~3 MB)
+- **Windows**: `Bootstreep_2.6.2_x64-setup.exe` (~2 MB)
+- **Windows MSI**: `Bootstreep_2.6.2_x64_en-US.msi` (~3 MB)
 
 ### Build from Source
 
@@ -224,7 +224,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <p align="center">
   <sub>Built with Tauri 2.x Â· Rust Â· Vanilla JS</sub><br>
-  <sub>Bootstreep Dashboard v2.6.0</sub>
+  <sub>Bootstreep Dashboard v2.6.2</sub>
 </p>
 
 
