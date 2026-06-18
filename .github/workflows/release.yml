@@ -89,7 +89,7 @@ jobs:
         run: cargo tauri android build --apk
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: app-release.apk
           path: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
