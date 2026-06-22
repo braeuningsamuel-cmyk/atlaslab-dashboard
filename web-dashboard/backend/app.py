@@ -374,23 +374,28 @@ def repo_status():
     return jsonify(repos)
 
 
+# Validates that the requested repository path is local and doesn't escape the allowed directory.
+def validate_repo_path(name):
+    if not name or '/' in name or '\\' in name or name in ('.', '..'):
+        return False
+    p = os.path.abspath(os.path.join(REPOS_PATH, name))
+    root = os.path.abspath(REPOS_PATH)
+    return p == root or p.startswith(root + os.sep)
+
 @app.route('/api/repos/<name>/fetch', methods=['POST'])
 def fetch_repo(name):
-    # Path-traversal protection: reject anything that isn't a safe single-segment name
-    if not name or '/' in name or '\\' in name or name in ('.', '..'):
-        return jsonify({'error': 'invalid repo name'}), 400
-    repo_path = os.path.join(REPOS_PATH, name)
-    real_repos = os.path.realpath(REPOS_PATH)
-    real_target = os.path.realpath(repo_path)
-    if not real_target.startswith(real_repos + os.sep) and real_target != real_repos:
-        return jsonify({'error': 'repo path escapes REPOS_PATH'}), 400
+    if not validate_repo_path(name):
+        return jsonify({'error': 'Invalid repository path'}), 400
+    
+    repo_path = os.path.abspath(os.path.join(REPOS_PATH, name))
     git_dir = os.path.join(repo_path, '.git')
     if not os.path.isdir(git_dir):
-        return jsonify({'error': 'Not a git repo'}), 404
+        return jsonify({'error': 'Not a valid git repository'}), 404
+        
     try:
         repo = git.Repo(repo_path)
         for remote in repo.remotes:
-            remote.fetch()  # no prune=True — keeps refs intact for downstream iteration
+            remote.fetch() # Fetch all tracked remotes without pruning to keep local ref state stable
         return jsonify({'status': 'fetched', 'repo': name})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
